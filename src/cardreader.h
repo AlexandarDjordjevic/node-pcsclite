@@ -49,6 +49,21 @@ class CardReader : public Nan::ObjectWrap {
         DWORD card_protocol;
     };
 
+    struct StatusInput {
+        LPSTR reader_name;
+        DWORD reader_name_len;
+        LPBYTE attr;
+        DWORD attr_len;
+    };
+
+    struct StatusResult {
+        LONG result;
+        DWORD reader_name_len;
+        DWORD state;
+        DWORD protocol;
+        DWORD attr_len;
+    };
+
     struct TransmitInput {
         DWORD card_protocol;
         LPBYTE in_data;
@@ -103,10 +118,11 @@ private:
     static Nan::Persistent<v8::Function> constructor;
 
     static NAN_METHOD(New);
-    static NAN_METHOD(GetStatus);
+    static NAN_METHOD(GetStatusChange);
     static NAN_METHOD(Connect);
     static NAN_METHOD(Reconnect);
     static NAN_METHOD(Disconnect);
+    static NAN_METHOD(Status);
     static NAN_METHOD(Transmit);
     static NAN_METHOD(Control);
     static NAN_METHOD(Close);
@@ -116,6 +132,7 @@ private:
     static void DoConnect(uv_work_t* req);
     static void DoReconnect(uv_work_t* req);
     static void DoDisconnect(uv_work_t* req);
+    static void DoStatus(uv_work_t* req);
     static void DoTransmit(uv_work_t* req);
     static void DoControl(uv_work_t* req);
     static void CloseCallback(uv_handle_t* handle);
@@ -123,6 +140,7 @@ private:
     static void AfterConnect(uv_work_t* req, int status);
     static void AfterReconnect(uv_work_t* req, int status);
     static void AfterDisconnect(uv_work_t* req, int status);
+    static void AfterStatus(uv_work_t* req, int status);
     static void AfterTransmit(uv_work_t* req, int status);
     static void AfterControl(uv_work_t* req, int status);
 
