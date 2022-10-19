@@ -7,8 +7,7 @@ using namespace node;
 Nan::Persistent<Function> CardReader::constructor;
 
 void CardReader::init(Local<Object> target) {
-
-     // Prepare constructor template
+    // Prepare constructor template
     Local<FunctionTemplate> tpl = Nan::New<FunctionTemplate>(New);
     tpl->SetClassName(Nan::New("CardReader").ToLocalChecked());
     tpl->InstanceTemplate()->SetInternalFieldCount(1);
@@ -60,10 +59,8 @@ void CardReader::init(Local<Object> target) {
     Nan::Set(target, Nan::New("CardReader").ToLocalChecked(), newfunc);
 }
 
-CardReader::CardReader(const std::string &reader_name): m_card_context(0),
-                                                        m_card_handle(0),
-                                                        m_name(reader_name),
-                                                        m_state(0) {
+CardReader::CardReader(const std::string& reader_name)
+    : m_card_context(0), m_card_handle(0), m_name(reader_name), m_state(0) {
     assert(uv_mutex_init(&m_mutex) == 0);
     assert(uv_cond_init(&m_cond) == 0);
 }
@@ -83,28 +80,24 @@ CardReader::~CardReader() {
 }
 
 NAN_METHOD(CardReader::New) {
-
     Nan::HandleScope scope;
 
     Nan::Utf8String reader_name(info[0]);
     CardReader* obj = new CardReader(*reader_name);
     obj->Wrap(info.Holder());
-    Nan::Set(obj->handle(),
-             Nan::New(name_symbol),
-             Nan::New(*reader_name).ToLocalChecked());
+    Nan::Set(obj->handle(), Nan::New(name_symbol), Nan::New(*reader_name).ToLocalChecked());
     Nan::Set(obj->handle(), Nan::New(connected_symbol), Nan::False());
 
     info.GetReturnValue().Set(info.Holder());
 }
 
 NAN_METHOD(CardReader::GetStatus) {
-
     Nan::HandleScope scope;
 
     CardReader* obj = Nan::ObjectWrap::Unwrap<CardReader>(info.This());
     Local<Function> cb = Local<Function>::Cast(info[0]);
 
-    AsyncBaton *async_baton = new AsyncBaton();
+    AsyncBaton* async_baton = new AsyncBaton();
     async_baton->async.data = async_baton;
     async_baton->callback.Reset(cb);
     async_baton->reader = obj;
@@ -115,7 +108,6 @@ NAN_METHOD(CardReader::GetStatus) {
 }
 
 NAN_METHOD(CardReader::Connect) {
-
     Nan::HandleScope scope;
 
     // The second argument is the length of the data to be received
@@ -146,17 +138,12 @@ NAN_METHOD(CardReader::Connect) {
     // Schedule our work request with libuv. Here you can specify the functions
     // that should be executed in the threadpool and back in the main thread
     // after the threadpool function completed.
-    int status = uv_queue_work(uv_default_loop(),
-                               &baton->request,
-                               DoConnect,
+    int status = uv_queue_work(uv_default_loop(), &baton->request, DoConnect,
                                reinterpret_cast<uv_after_work_cb>(AfterConnect));
     assert(status == 0);
-
-
 }
 
 NAN_METHOD(CardReader::Disconnect) {
-
     Nan::HandleScope scope;
 
     if (!info[0]->IsUint32()) {
@@ -180,17 +167,12 @@ NAN_METHOD(CardReader::Disconnect) {
     // Schedule our work request with libuv. Here you can specify the functions
     // that should be executed in the threadpool and back in the main thread
     // after the threadpool function completed.
-    int status = uv_queue_work(uv_default_loop(),
-                               &baton->request,
-                               DoDisconnect,
+    int status = uv_queue_work(uv_default_loop(), &baton->request, DoDisconnect,
                                reinterpret_cast<uv_after_work_cb>(AfterDisconnect));
     assert(status == 0);
-
-
 }
 
 NAN_METHOD(CardReader::Transmit) {
-
     Nan::HandleScope scope;
 
     // The first argument is the buffer to be transmitted.
@@ -223,7 +205,7 @@ NAN_METHOD(CardReader::Transmit) {
     baton->request.data = baton;
     baton->callback.Reset(cb);
     baton->reader = Nan::ObjectWrap::Unwrap<CardReader>(info.This());
-    TransmitInput *ti = new TransmitInput();
+    TransmitInput* ti = new TransmitInput();
     ti->card_protocol = protocol;
     ti->in_data = new unsigned char[Buffer::Length(buffer_data)];
     ti->in_len = Buffer::Length(buffer_data);
@@ -235,17 +217,12 @@ NAN_METHOD(CardReader::Transmit) {
     // Schedule our work request with libuv. Here you can specify the functions
     // that should be executed in the threadpool and back in the main thread
     // after the threadpool function completed.
-    int status = uv_queue_work(uv_default_loop(),
-                               &baton->request,
-                               DoTransmit,
+    int status = uv_queue_work(uv_default_loop(), &baton->request, DoTransmit,
                                reinterpret_cast<uv_after_work_cb>(AfterTransmit));
     assert(status == 0);
-
-
 }
 
 NAN_METHOD(CardReader::Control) {
-
     Nan::HandleScope scope;
 
     // The first argument is the buffer to be transmitted.
@@ -278,7 +255,7 @@ NAN_METHOD(CardReader::Control) {
     baton->request.data = baton;
     baton->callback.Reset(cb);
     baton->reader = Nan::ObjectWrap::Unwrap<CardReader>(info.This());
-    ControlInput *ci = new ControlInput();
+    ControlInput* ci = new ControlInput();
     ci->control_code = control_code;
     ci->in_data = Buffer::Data(in_buf);
     ci->in_len = Buffer::Length(in_buf);
@@ -289,17 +266,12 @@ NAN_METHOD(CardReader::Control) {
     // Schedule our work request with libuv. Here you can specify the functions
     // that should be executed in the threadpool and back in the main thread
     // after the threadpool function completed.
-    int status = uv_queue_work(uv_default_loop(),
-                               &baton->request,
-                               DoControl,
+    int status = uv_queue_work(uv_default_loop(), &baton->request, DoControl,
                                reinterpret_cast<uv_after_work_cb>(AfterControl));
     assert(status == 0);
-
-
 }
 
 NAN_METHOD(CardReader::Close) {
-
     Nan::HandleScope scope;
 
     LONG result = SCARD_S_SUCCESS;
@@ -314,7 +286,7 @@ NAN_METHOD(CardReader::Close) {
             do {
                 result = SCardCancel(obj->m_status_card_context);
                 ret = uv_cond_timedwait(&obj->m_cond, &obj->m_mutex, 10000000);
-            } while ((ret != 0) && (++ times < 5));
+            } while ((ret != 0) && (++times < 5));
         }
 
         uv_mutex_unlock(&obj->m_mutex);
@@ -325,8 +297,7 @@ NAN_METHOD(CardReader::Close) {
     info.GetReturnValue().Set(Nan::New<Number>(result));
 }
 
-void CardReader::HandleReaderStatusChange(uv_async_t *handle, int status) {
-
+void CardReader::HandleReaderStatusChange(uv_async_t* handle, int status) {
     Nan::HandleScope scope;
 
     AsyncBaton* async_baton = static_cast<AsyncBaton*>(handle->data);
@@ -340,16 +311,16 @@ void CardReader::HandleReaderStatusChange(uv_async_t *handle, int status) {
 
     if (reader->m_state == 1) {
         // Swallow events : Listening thread was cancelled by user.
-    } else if ((ar->result == SCARD_S_SUCCESS) ||
-               (ar->result == (LONG)SCARD_E_NO_READERS_AVAILABLE) ||
-               (ar->result == (LONG)SCARD_E_UNKNOWN_READER)) { // Card reader was unplugged, it's not an error
+    } else if ((ar->result == SCARD_S_SUCCESS) || (ar->result == (LONG)SCARD_E_NO_READERS_AVAILABLE)
+               || (ar->result
+                   == (LONG)
+                     SCARD_E_UNKNOWN_READER)) { // Card reader was unplugged, it's not an error
         if (ar->status != 0) {
             const unsigned int argc = 3;
             Local<Value> argv[argc] = {
-                Nan::Undefined(), // argument
-                Nan::New<Number>(ar->status),
-                Nan::CopyBuffer(reinterpret_cast<char*>(ar->atr), ar->atrlen).ToLocalChecked()
-            };
+              Nan::Undefined(), // argument
+              Nan::New<Number>(ar->status),
+              Nan::CopyBuffer(reinterpret_cast<char*>(ar->atr), ar->atrlen).ToLocalChecked()};
 
             Nan::Call(Nan::Callback(Nan::New(async_baton->callback)), argc, argv);
         }
@@ -357,16 +328,17 @@ void CardReader::HandleReaderStatusChange(uv_async_t *handle, int status) {
         Local<Value> err = Nan::Error(error_msg("SCardGetStatusChange", ar->result).c_str());
         // Prepare the parameters for the callback function.
         const unsigned int argc = 1;
-        Local<Value> argv[argc] = { err };
+        Local<Value> argv[argc] = {err};
         Nan::Call(Nan::Callback(Nan::New(async_baton->callback)), argc, argv);
     }
 
     if (ar->do_exit) {
-        uv_close(reinterpret_cast<uv_handle_t*>(&async_baton->async), CloseCallback); // necessary otherwise UV will block
+        uv_close(reinterpret_cast<uv_handle_t*>(&async_baton->async),
+                 CloseCallback); // necessary otherwise UV will block
 
         /* Emit end event */
         Local<Value> argv[1] = {
-            Nan::New("_end").ToLocalChecked(), // event name
+          Nan::New("_end").ToLocalChecked(), // event name
         };
 
         Nan::MakeCallback(async_baton->reader->handle(), "emit", 1, argv);
@@ -378,21 +350,21 @@ void CardReader::HandleReaderStatusChange(uv_async_t *handle, int status) {
 }
 
 void CardReader::HandlerFunction(void* arg) {
-
     AsyncBaton* async_baton = static_cast<AsyncBaton*>(arg);
     CardReader* reader = async_baton->reader;
     async_baton->async_result = new AsyncResult();
     async_baton->async_result->do_exit = false;
 
-    LONG result = SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &reader->m_status_card_context);
+    LONG result =
+      SCardEstablishContext(SCARD_SCOPE_SYSTEM, NULL, NULL, &reader->m_status_card_context);
 
     SCARD_READERSTATE card_reader_state = SCARD_READERSTATE();
     card_reader_state.szReader = reader->m_name.c_str();
     card_reader_state.dwCurrentState = SCARD_STATE_UNAWARE;
 
     while (!reader->m_state) {
-
-        result = SCardGetStatusChange(reader->m_status_card_context, INFINITE, &card_reader_state, 1);
+        result =
+          SCardGetStatusChange(reader->m_status_card_context, INFINITE, &card_reader_state, 1);
 
         uv_mutex_lock(&reader->m_mutex);
         if (reader->m_state == 1) {
@@ -423,9 +395,8 @@ void CardReader::HandlerFunction(void* arg) {
 }
 
 void CardReader::DoConnect(uv_work_t* req) {
-
     Baton* baton = static_cast<Baton*>(req->data);
-    ConnectInput *ci = static_cast<ConnectInput*>(baton->input);
+    ConnectInput* ci = static_cast<ConnectInput*>(baton->input);
 
     DWORD card_protocol;
     LONG result = SCARD_S_SUCCESS;
@@ -440,18 +411,14 @@ void CardReader::DoConnect(uv_work_t* req) {
 
     /* Connect */
     if (result == SCARD_S_SUCCESS) {
-        result = SCardConnect(obj->m_card_context,
-                              obj->m_name.c_str(),
-                              ci->share_mode,
-                              ci->pref_protocol,
-                              &obj->m_card_handle,
-                              &card_protocol);
+        result = SCardConnect(obj->m_card_context, obj->m_name.c_str(), ci->share_mode,
+                              ci->pref_protocol, &obj->m_card_handle, &card_protocol);
     }
 
     /* Unlock the mutex */
     uv_mutex_unlock(&obj->m_mutex);
 
-    ConnectResult *cr = new ConnectResult();
+    ConnectResult* cr = new ConnectResult();
     cr->result = result;
     if (!result) {
         cr->card_protocol = card_protocol;
@@ -461,25 +428,21 @@ void CardReader::DoConnect(uv_work_t* req) {
 }
 
 void CardReader::AfterConnect(uv_work_t* req, int status) {
-
     Nan::HandleScope scope;
     Baton* baton = static_cast<Baton*>(req->data);
-    ConnectInput *ci = static_cast<ConnectInput*>(baton->input);
-    ConnectResult *cr = static_cast<ConnectResult*>(baton->result);
+    ConnectInput* ci = static_cast<ConnectInput*>(baton->input);
+    ConnectResult* cr = static_cast<ConnectResult*>(baton->result);
 
     if (cr->result) {
         Local<Value> err = Nan::Error(error_msg("SCardConnect", cr->result).c_str());
         // Prepare the parameters for the callback function.
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { err };
+        Local<Value> argv[argc] = {err};
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     } else {
         Nan::Set(baton->reader->handle(), Nan::New(connected_symbol), Nan::True());
         const unsigned argc = 2;
-        Local<Value> argv[argc] = {
-            Nan::Null(),
-            Nan::New<Number>(cr->card_protocol)
-        };
+        Local<Value> argv[argc] = {Nan::Null(), Nan::New<Number>(cr->card_protocol)};
 
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     }
@@ -492,7 +455,6 @@ void CardReader::AfterConnect(uv_work_t* req, int status) {
 }
 
 void CardReader::DoDisconnect(uv_work_t* req) {
-
     Baton* baton = static_cast<Baton*>(req->data);
     DWORD* disposition = reinterpret_cast<DWORD*>(baton->input);
 
@@ -516,7 +478,6 @@ void CardReader::DoDisconnect(uv_work_t* req) {
 }
 
 void CardReader::AfterDisconnect(uv_work_t* req, int status) {
-
     Nan::HandleScope scope;
     Baton* baton = static_cast<Baton*>(req->data);
     LONG* result = reinterpret_cast<LONG*>(baton->result);
@@ -526,14 +487,12 @@ void CardReader::AfterDisconnect(uv_work_t* req, int status) {
 
         // Prepare the parameters for the callback function.
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { err };
+        Local<Value> argv[argc] = {err};
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     } else {
         Nan::Set(baton->reader->handle(), Nan::New(connected_symbol), Nan::False());
         const unsigned argc = 1;
-        Local<Value> argv[argc] = {
-            Nan::Null()
-        };
+        Local<Value> argv[argc] = {Nan::Null()};
 
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     }
@@ -547,12 +506,11 @@ void CardReader::AfterDisconnect(uv_work_t* req, int status) {
 }
 
 void CardReader::DoTransmit(uv_work_t* req) {
-
     Baton* baton = static_cast<Baton*>(req->data);
-    TransmitInput *ti = static_cast<TransmitInput*>(baton->input);
+    TransmitInput* ti = static_cast<TransmitInput*>(baton->input);
     CardReader* obj = baton->reader;
 
-    TransmitResult *tr = new TransmitResult();
+    TransmitResult* tr = new TransmitResult();
     tr->data = new unsigned char[ti->out_len];
     tr->len = ti->out_len;
     LONG result = SCARD_E_INVALID_HANDLE;
@@ -560,11 +518,12 @@ void CardReader::DoTransmit(uv_work_t* req) {
     /* Lock mutex */
     uv_mutex_lock(&obj->m_mutex);
     /* Connected? */
-    // Under windows, SCARD_IO_REQUEST param must be NULL. Else error RPC_X_BAD_STUB_DATA / 0x06F7 on each call.
+    // Under windows, SCARD_IO_REQUEST param must be NULL. Else error RPC_X_BAD_STUB_DATA / 0x06F7
+    // on each call.
     if (obj->m_card_handle) {
-        SCARD_IO_REQUEST send_pci = { ti->card_protocol, sizeof(SCARD_IO_REQUEST) };
-        result = SCardTransmit(obj->m_card_handle, &send_pci, ti->in_data, ti->in_len,
-                               NULL, tr->data, &tr->len);
+        SCARD_IO_REQUEST send_pci = {ti->card_protocol, sizeof(SCARD_IO_REQUEST)};
+        result = SCardTransmit(obj->m_card_handle, &send_pci, ti->in_data, ti->in_len, NULL,
+                               tr->data, &tr->len);
     }
 
     /* Unlock the mutex */
@@ -576,25 +535,23 @@ void CardReader::DoTransmit(uv_work_t* req) {
 }
 
 void CardReader::AfterTransmit(uv_work_t* req, int status) {
-
     Nan::HandleScope scope;
     Baton* baton = static_cast<Baton*>(req->data);
-    TransmitInput *ti = static_cast<TransmitInput*>(baton->input);
-    TransmitResult *tr = static_cast<TransmitResult*>(baton->result);
+    TransmitInput* ti = static_cast<TransmitInput*>(baton->input);
+    TransmitResult* tr = static_cast<TransmitResult*>(baton->result);
 
     if (tr->result) {
         Local<Value> err = Nan::Error(error_msg("SCardTransmit", tr->result).c_str());
 
         // Prepare the parameters for the callback function.
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { err };
+        Local<Value> argv[argc] = {err};
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     } else {
         const unsigned argc = 2;
         Local<Value> argv[argc] = {
-            Nan::Null(),
-            Nan::CopyBuffer(reinterpret_cast<char*>(tr->data), tr->len).ToLocalChecked()
-        };
+          Nan::Null(),
+          Nan::CopyBuffer(reinterpret_cast<char*>(tr->data), tr->len).ToLocalChecked()};
 
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     }
@@ -602,33 +559,27 @@ void CardReader::AfterTransmit(uv_work_t* req, int status) {
 
     // The callback is a permanent handle, so we have to dispose of it manually.
     baton->callback.Reset();
-    delete [] ti->in_data;
+    delete[] ti->in_data;
     delete ti;
-    delete [] tr->data;
+    delete[] tr->data;
     delete tr;
     delete baton;
 }
 
 void CardReader::DoControl(uv_work_t* req) {
-
     Baton* baton = static_cast<Baton*>(req->data);
-    ControlInput *ci = static_cast<ControlInput*>(baton->input);
+    ControlInput* ci = static_cast<ControlInput*>(baton->input);
     CardReader* obj = baton->reader;
 
-    ControlResult *cr = new ControlResult();
+    ControlResult* cr = new ControlResult();
     LONG result = SCARD_E_INVALID_HANDLE;
 
     /* Lock mutex */
     uv_mutex_lock(&obj->m_mutex);
     /* Connected? */
     if (obj->m_card_handle) {
-        result = SCardControl(obj->m_card_handle,
-                              ci->control_code,
-                              ci->in_data,
-                              ci->in_len,
-                              ci->out_data,
-                              ci->out_len,
-                              &cr->len);
+        result = SCardControl(obj->m_card_handle, ci->control_code, ci->in_data, ci->in_len,
+                              ci->out_data, ci->out_len, &cr->len);
     }
 
     /* Unlock the mutex */
@@ -640,25 +591,21 @@ void CardReader::DoControl(uv_work_t* req) {
 }
 
 void CardReader::AfterControl(uv_work_t* req, int status) {
-
     Nan::HandleScope scope;
     Baton* baton = static_cast<Baton*>(req->data);
-    ControlInput *ci = static_cast<ControlInput*>(baton->input);
-    ControlResult *cr = static_cast<ControlResult*>(baton->result);
+    ControlInput* ci = static_cast<ControlInput*>(baton->input);
+    ControlResult* cr = static_cast<ControlResult*>(baton->result);
 
     if (cr->result) {
         Local<Value> err = Nan::Error(error_msg("SCardControl", cr->result).c_str());
 
         // Prepare the parameters for the callback function.
         const unsigned argc = 1;
-        Local<Value> argv[argc] = { err };
+        Local<Value> argv[argc] = {err};
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     } else {
         const unsigned argc = 2;
-        Local<Value> argv[argc] = {
-            Nan::Null(),
-            Nan::New<Number>(cr->len)
-        };
+        Local<Value> argv[argc] = {Nan::Null(), Nan::New<Number>(cr->len)};
 
         Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
     }
@@ -671,8 +618,7 @@ void CardReader::AfterControl(uv_work_t* req, int status) {
     delete baton;
 }
 
-void CardReader::CloseCallback(uv_handle_t *handle) {
-
+void CardReader::CloseCallback(uv_handle_t* handle) {
     /* cleanup process */
     AsyncBaton* async_baton = static_cast<AsyncBaton*>(handle->data);
     AsyncResult* ar = async_baton->async_result;

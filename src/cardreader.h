@@ -5,28 +5,27 @@
 #include <node_version.h>
 #include <string>
 #ifdef __APPLE__
-#include <PCSC/winscard.h>
-#include <PCSC/wintypes.h>
+    #include <PCSC/winscard.h>
+    #include <PCSC/wintypes.h>
 #else
-#include <winscard.h>
+    #include <winscard.h>
 #endif
 
 #ifdef _WIN32
-#define MAX_ATR_SIZE 33
+    #define MAX_ATR_SIZE 33
 #endif
 
 static Nan::Persistent<v8::String> name_symbol;
 static Nan::Persistent<v8::String> connected_symbol;
 
-class CardReader: public Nan::ObjectWrap {
-
+class CardReader : public Nan::ObjectWrap {
     // We use a struct to store information about the asynchronous "work request".
     struct Baton {
         uv_work_t request;
         Nan::Persistent<v8::Function> callback;
-        CardReader *reader;
-        void *input;
-        void *result;
+        CardReader* reader;
+        void* input;
+        void* result;
     };
 
     struct ConnectInput {
@@ -76,55 +75,52 @@ class CardReader: public Nan::ObjectWrap {
     struct AsyncBaton {
         uv_async_t async;
         Nan::Persistent<v8::Function> callback;
-        CardReader *reader;
-        AsyncResult *async_result;
+        CardReader* reader;
+        AsyncResult* async_result;
     };
 
-    public:
+public:
+    static void init(v8::Local<v8::Object> target);
 
-        static void init(v8::Local<v8::Object> target);
+    const SCARDHANDLE& GetHandler() const { return m_card_handle; };
 
-        const SCARDHANDLE& GetHandler() const { return m_card_handle; };
+private:
+    CardReader(const std::string& reader_name);
 
-    private:
+    ~CardReader();
 
-        CardReader(const std::string &reader_name);
+    static Nan::Persistent<v8::Function> constructor;
 
-        ~CardReader();
+    static NAN_METHOD(New);
+    static NAN_METHOD(GetStatus);
+    static NAN_METHOD(Connect);
+    static NAN_METHOD(Disconnect);
+    static NAN_METHOD(Transmit);
+    static NAN_METHOD(Control);
+    static NAN_METHOD(Close);
 
-        static Nan::Persistent<v8::Function> constructor;
+    static void HandleReaderStatusChange(uv_async_t* handle, int status);
+    static void HandlerFunction(void* arg);
+    static void DoConnect(uv_work_t* req);
+    static void DoDisconnect(uv_work_t* req);
+    static void DoTransmit(uv_work_t* req);
+    static void DoControl(uv_work_t* req);
+    static void CloseCallback(uv_handle_t* handle);
 
-        static NAN_METHOD(New);
-        static NAN_METHOD(GetStatus);
-        static NAN_METHOD(Connect);
-        static NAN_METHOD(Disconnect);
-        static NAN_METHOD(Transmit);
-        static NAN_METHOD(Control);
-        static NAN_METHOD(Close);
+    static void AfterConnect(uv_work_t* req, int status);
+    static void AfterDisconnect(uv_work_t* req, int status);
+    static void AfterTransmit(uv_work_t* req, int status);
+    static void AfterControl(uv_work_t* req, int status);
 
-        static void HandleReaderStatusChange(uv_async_t *handle, int status);
-        static void HandlerFunction(void* arg);
-        static void DoConnect(uv_work_t* req);
-        static void DoDisconnect(uv_work_t* req);
-        static void DoTransmit(uv_work_t* req);
-        static void DoControl(uv_work_t* req);
-        static void CloseCallback(uv_handle_t *handle);
-
-        static void AfterConnect(uv_work_t* req, int status);
-        static void AfterDisconnect(uv_work_t* req, int status);
-        static void AfterTransmit(uv_work_t* req, int status);
-        static void AfterControl(uv_work_t* req, int status);
-
-    private:
-
-        SCARDCONTEXT m_card_context;
-        SCARDCONTEXT m_status_card_context;
-        SCARDHANDLE m_card_handle;
-        std::string m_name;
-        uv_thread_t m_status_thread;
-        uv_mutex_t m_mutex;
-        uv_cond_t m_cond;
-        int m_state;
+private:
+    SCARDCONTEXT m_card_context;
+    SCARDCONTEXT m_status_card_context;
+    SCARDHANDLE m_card_handle;
+    std::string m_name;
+    uv_thread_t m_status_thread;
+    uv_mutex_t m_mutex;
+    uv_cond_t m_cond;
+    int m_state;
 };
 
 #endif /* CARDREADER_H */
