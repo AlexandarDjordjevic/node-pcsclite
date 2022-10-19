@@ -1,6 +1,6 @@
 {
     "name": "silly-node-pcsclite",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "engines": {
         "node": ">=4.8.0"
     },
