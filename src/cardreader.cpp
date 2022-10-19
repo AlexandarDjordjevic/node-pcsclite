@@ -233,38 +233,27 @@ NAN_METHOD(CardReader::Status) {
         return Nan::ThrowError("Second argument must be an integer for reader name length");
     }
 
-    if (!info[2]->IsUint32()) {
-        // state
-        return Nan::ThrowError("Third argument must be an integer for state");
-    }
-
-    if (!info[3]->IsUint32()) {
-        // protocol
-        return Nan::ThrowError("Forth argument must be an integer for protocol");
-    }
-
-    if (!Buffer::HasInstance(info[4])) {
+    if (!Buffer::HasInstance(info[2])) {
         // attr
         return Nan::ThrowError("Fifth argument must be a Buffer for ATR");
     }
 
-    if (!info[5]->IsUint32()) {
+    if (!info[3]->IsUint32()) {
         // attr_len
         return Nan::ThrowError("Sixth argument must be an integer for ATR length");
     }
 
-    if (!info[6]->IsFunction()) {
+    if (!info[4]->IsFunction()) {
         // callback function
         return Nan::ThrowError("First argument must be a callback function");
     }
 
-    Local<Function> cb = Local<Function>::Cast(info[6]);
-
     StatusInput* csi = new StatusInput();
     csi->reader_name = Buffer::Data(info[0]);
     csi->reader_name_len = Nan::To<uint32_t>(info[1]).ToChecked();
-    csi->attr = reinterpret_cast<unsigned char*>(Buffer::Data(info[4]));
-    csi->attr_len = Nan::To<uint32_t>(info[5]).ToChecked();
+    csi->attr = reinterpret_cast<unsigned char*>(Buffer::Data(info[2]));
+    csi->attr_len = Nan::To<uint32_t>(info[3]).ToChecked();
+    Local<Function> cb = Local<Function>::Cast(info[4]);
 
     // This creates our work request, including the libuv struct.
     Baton* baton = new Baton();
