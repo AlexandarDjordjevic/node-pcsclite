@@ -1,5 +1,5 @@
 {
-    "name": "pcsclite",
+    "name": "silly-node-pcsclite",
     "version": "1.0.1",
     "engines": {
         "node": ">=4.8.0"
@@ -22,16 +22,16 @@
         "test": "mocha",
         "install": "node-gyp rebuild"
     },
-    "repository": "https://github.com/santigimeno/node-pcsclite.git",
+    "repository": "https://github.com/AlexandarDjordjevic/node-pcsclite.git",
     "keywords": [
         "pcsc",
         "pcsclite",
         "smartcards"
     ],
-    "author": "Santiago Gimeno <santiago.gimeno@gmail.com>",
+    "author": "Aleksandar Djordjevic <aleksandar.d@nutanix.com>",
     "license": {
         "type": "ISC",
-        "url": "https://github.com/santigimeno/node-pcsclite/blob/master/LICENSE"
+        "url": "https://github.com/AlexandarDjordjevic/node-pcsclite/blob/master/LICENSE"
     },
     "gypfile": true
 }
