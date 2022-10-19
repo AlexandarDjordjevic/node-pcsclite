@@ -17,10 +17,12 @@ void CardReader::init(Local<Object> target) {
     connected_symbol.Reset(Nan::New("connected").ToLocalChecked());
 
     // Prototype
-    Nan::SetPrototypeTemplate(tpl, "get_status", Nan::New<FunctionTemplate>(GetStatus));
+    Nan::SetPrototypeTemplate(tpl, "get_status_change",
+                              Nan::New<FunctionTemplate>(GetStatusChange));
     Nan::SetPrototypeTemplate(tpl, "_connect", Nan::New<FunctionTemplate>(Connect));
     Nan::SetPrototypeTemplate(tpl, "_reconnect", Nan::New<FunctionTemplate>(Reconnect));
     Nan::SetPrototypeTemplate(tpl, "_disconnect", Nan::New<FunctionTemplate>(Disconnect));
+    Nan::SetPrototypeTemplate(tpl, "_get_status", Nan::New<FunctionTemplate>(Status));
     Nan::SetPrototypeTemplate(tpl, "_transmit", Nan::New<FunctionTemplate>(Transmit));
     Nan::SetPrototypeTemplate(tpl, "_control", Nan::New<FunctionTemplate>(Control));
     Nan::SetPrototypeTemplate(tpl, "close", Nan::New<FunctionTemplate>(Close));
@@ -92,7 +94,7 @@ NAN_METHOD(CardReader::New) {
     info.GetReturnValue().Set(info.Holder());
 }
 
-NAN_METHOD(CardReader::GetStatus) {
+NAN_METHOD(CardReader::GetStatusChange) {
     Nan::HandleScope scope;
 
     CardReader* obj = Nan::ObjectWrap::Unwrap<CardReader>(info.This());
@@ -212,6 +214,70 @@ NAN_METHOD(CardReader::Disconnect) {
     // after the threadpool function completed.
     int status = uv_queue_work(uv_default_loop(), &baton->request, DoDisconnect,
                                reinterpret_cast<uv_after_work_cb>(AfterDisconnect));
+    assert(status == 0);
+}
+
+NAN_METHOD(CardReader::Status) {
+    //   reader_name, reader_name_len, state, protocol, attr, attr_len,
+
+    Nan::HandleScope scope;
+
+    // The first argument is the buffer
+    if (!Buffer::HasInstance(info[0])) {
+        // reader_name,
+        return Nan::ThrowError("First argument must be a Buffer for reader name");
+    }
+
+    if (!info[1]->IsUint32()) {
+        // reader_name_len
+        return Nan::ThrowError("Second argument must be an integer for reader name length");
+    }
+
+    if (!info[2]->IsUint32()) {
+        // state
+        return Nan::ThrowError("Third argument must be an integer for state");
+    }
+
+    if (!info[3]->IsUint32()) {
+        // protocol
+        return Nan::ThrowError("Forth argument must be an integer for protocol");
+    }
+
+    if (!Buffer::HasInstance(info[4])) {
+        // attr
+        return Nan::ThrowError("Fifth argument must be a Buffer for ATR");
+    }
+
+    if (!info[5]->IsUint32()) {
+        // attr_len
+        return Nan::ThrowError("Sixth argument must be an integer for ATR length");
+    }
+
+    if (!info[6]->IsFunction()) {
+        // callback function
+        return Nan::ThrowError("First argument must be a callback function");
+    }
+
+    Local<Function> cb = Local<Function>::Cast(info[6]);
+
+    StatusInput* csi = new StatusInput();
+    csi->reader_name = Buffer::Data(info[0]);
+    csi->reader_name_len = Nan::To<uint32_t>(info[1]).ToChecked();
+    csi->attr = reinterpret_cast<unsigned char*>(Buffer::Data(info[4]));
+    csi->attr_len = Nan::To<uint32_t>(info[5]).ToChecked();
+
+    // This creates our work request, including the libuv struct.
+    Baton* baton = new Baton();
+    baton->request.data = baton;
+    baton->callback.Reset(cb);
+    baton->reader = Nan::ObjectWrap::Unwrap<CardReader>(info.This());
+    baton->input = csi;
+
+    // Schedule our work request with libuv. Here you can specify the functions
+    // that should be executed in the threadpool and back in the main thread
+    // after the threadpool function completed.
+    int status = uv_queue_work(uv_default_loop(), &baton->request, DoStatus,
+                               reinterpret_cast<uv_after_work_cb>(AfterStatus));
     assert(status == 0);
 }
 
@@ -605,6 +671,61 @@ void CardReader::AfterDisconnect(uv_work_t* req, int status) {
     DWORD* disposition = reinterpret_cast<DWORD*>(baton->input);
     delete disposition;
     delete result;
+    delete baton;
+}
+
+void CardReader::DoStatus(uv_work_t* req) {
+    Baton* baton = static_cast<Baton*>(req->data);
+    StatusInput* ci = static_cast<StatusInput*>(baton->input);
+    StatusResult* cr = new StatusResult();
+    CardReader* obj = baton->reader;
+
+    LONG result = SCARD_E_INVALID_HANDLE;
+
+    /* Lock mutex */
+    uv_mutex_lock(&obj->m_mutex);
+    /* Connected? */
+    if (obj->m_card_handle) {
+        result = SCardStatus(obj->m_card_handle, ci->reader_name, &ci->reader_name_len, &cr->state,
+                             &cr->protocol, ci->attr, &ci->attr_len);
+    }
+
+    /* Unlock the mutex */
+    uv_mutex_unlock(&obj->m_mutex);
+
+    cr->result = result;
+    cr->reader_name_len = ci->reader_name_len;
+    cr->attr_len = ci->attr_len;
+
+    baton->result = cr;
+}
+
+void CardReader::AfterStatus(uv_work_t* req, int status) {
+    Nan::HandleScope scope;
+    Baton* baton = static_cast<Baton*>(req->data);
+    StatusInput* ci = static_cast<StatusInput*>(baton->input);
+    StatusResult* cr = static_cast<StatusResult*>(baton->result);
+
+    if (cr->result) {
+        Local<Value> err = Nan::Error(error_msg("SCardStatus", cr->result).c_str());
+
+        // Prepare the parameters for the callback function.
+        const unsigned argc = 1;
+        Local<Value> argv[argc] = {err};
+        Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
+    } else {
+        const unsigned argc = 5;
+        Local<Value> argv[argc] = {Nan::Null(), Nan::New<Number>(cr->reader_name_len),
+                                   Nan::New<Number>(cr->state), Nan::New<Number>(cr->protocol),
+                                   Nan::New<Number>(cr->attr_len)};
+
+        Nan::Call(Nan::Callback(Nan::New(baton->callback)), argc, argv);
+    }
+
+    // The callback is a permanent handle, so we have to dispose of it manually.
+    baton->callback.Reset();
+    delete ci;
+    delete cr;
     delete baton;
 }
 
